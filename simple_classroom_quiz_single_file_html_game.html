@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quick Quiz — Classroom Edition</title>
+  <style>
+    :root{
+      --bg:#0b1020;      /* deep navy */
+      --panel:#121a36;   /* card bg */
+      --ink:#e7ecff;     /* text */
+      --muted:#9fb0ff;   /* secondary text */
+      --accent:#7aa2ff;  /* main accent */
+      --accent-2:#55e6c1;/* success */
+      --danger:#ff7a7a;  /* wrong */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Noto Sans,sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #1b2957, #0b1020 60%), var(--bg);
+      color:var(--ink); display:grid; place-items:center; padding:32px;
+    }
+    .app{width:min(900px, 100%);}
+    header{display:flex; gap:16px; align-items:center; margin-bottom:16px}
+    header h1{font-size:clamp(20px,4vw,28px); margin:0}
+    header .pill{margin-left:auto; font-size:14px; padding:6px 10px; border:1px solid #26305d; border-radius:999px; color:var(--muted)}
+
+    .card{background:linear-gradient(180deg,#131b3a,#0f1530); border:1px solid #2a3567; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+    .panel{padding:24px clamp(18px,4vw,28px)}
+
+    .row{display:flex; gap:16px; flex-wrap:wrap}
+    .grow{flex:1}
+
+    .meta{display:flex; gap:10px; align-items:center; color:var(--muted); font-size:14px}
+    .meta .dot{width:8px; height:8px; background:var(--accent); border-radius:999px; display:inline-block}
+
+    .progress{
+      height:10px; background:#1a2349; border-radius:999px; overflow:hidden; border:1px solid #2a3567; margin-top:12px
+    }
+    .progress > div{height:100%; width:0; background:linear-gradient(90deg,var(--accent),#9ce0ff); transition:width .4s ease}
+
+    .qtext{font-size:clamp(18px,3.2vw,24px); margin:18px 0 10px}
+
+    .options{display:grid; gap:12px; margin-top:8px}
+    .btn{
+      appearance:none; background:#141d40; color:var(--ink); border:1px solid #2a3567; padding:14px 16px; border-radius:14px; cursor:pointer; text-align:left; transition:transform .02s ease, background .2s, border-color .2s;
+    }
+    .btn:hover{background:#182458}
+    .btn:active{transform:scale(.995)}
+    .btn[disabled]{opacity:.7; cursor:not-allowed}
+
+    .btn.correct{background:linear-gradient(180deg,#133a2a,#0e2a1f); border-color:#2d7a63}
+    .btn.wrong{background:linear-gradient(180deg,#3a1313,#2a0e0e); border-color:#7a2d2d}
+
+    .controls{display:flex; gap:10px; margin-top:18px; align-items:center; justify-content:space-between}
+    .controls .left{display:flex; gap:8px; align-items:center}
+    .controls .right{display:flex; gap:10px}
+
+    .sbtn{
+      background:#0f1733; color:var(--ink); border:1px solid #2a3567; padding:10px 14px; border-radius:12px; cursor:pointer
+    }
+    .sbtn.primary{background:linear-gradient(180deg,#2a3f89,#1a2a66); border-color:#3e57ad}
+    .sbtn.ghost{background:transparent}
+
+    .muted{color:var(--muted)}
+
+    footer{margin-top:12px; color:#9fb0ff; font-size:13px; text-align:center}
+    code.kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; border:1px solid #2a3567; padding:2px 6px; border-radius:6px; background:#0f1733; color:#bcd0ff}
+
+    .hidden{display:none !important}
+
+    @media (prefers-reduced-motion: no-preference){
+      .fade{animation:fade .25s ease}
+      @keyframes fade{from{opacity:.65; transform:translateY(2px)} to{opacity:1; transform:none}}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="meta">
+      <span class="dot" aria-hidden="true"></span>
+      <h1 class="grow">Quick Quiz — Classroom Edition</h1>
+      <span id="timer" class="pill" aria-live="polite" title="Timer (optional)">Timer off</span>
+    </header>
+
+    <!-- QUIZ CARD -->
+    <section class="card" id="screen-quiz" role="group" aria-label="Quiz">
+      <div class="panel">
+        <div class="meta">
+          <div id="counter">Question 1 of 5</div>
+          <div class="grow"></div>
+          <div id="score">Score: 0</div>
+        </div>
+        <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+        <div id="qwrap" class="fade">
+          <div id="qtext" class="qtext">Loading…</div>
+          <div id="options" class="options" role="list"></div>
+        </div>
+        <div class="controls">
+          <div class="left">
+            <button class="sbtn ghost" id="toggleTimer" title="Toggle per-question timer">⏱ Toggle Timer</button>
+            <span class="muted">Use keys <code class="kbd">1-4</code> or click options</span>
+          </div>
+          <div class="right">
+            <button class="sbtn" id="skip">Skip</button>
+            <button class="sbtn primary" id="next" disabled>Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULT CARD -->
+    <section class="card hidden" id="screen-result" role="group" aria-label="Results">
+      <div class="panel">
+        <h2 style="margin:0 0 8px">All done! 🎉</h2>
+        <p id="summary" class="muted" style="margin-top:0"></p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px">
+          <button class="sbtn primary" id="restart">Play again</button>
+          <button class="sbtn" id="reviewBtn">Review answers</button>
+          <button class="sbtn" id="exportBtn" title="Download your questions as JSON">Export question set</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- REVIEW CARD -->
+    <section class="card hidden" id="screen-review" role="group" aria-label="Review">
+      <div class="panel" id="review"></div>
+      <div class="panel" style="border-top:1px solid #253263">
+        <button class="sbtn" id="backToResults">Back</button>
+      </div>
+    </section>
+
+    <footer>
+      <div>Single-file, no build tools. Edit the <em>questionBank</em> in the source below. • © You</div>
+    </footer>
+  </div>
+
+  <script>
+  // ==============================
+  // CONFIG — EDIT THIS PART ONLY
+  // ==============================
+  /**
+   * Create or paste your questions here. Each item supports:
+   *  type: "mc" (multiple choice) | "tf" (true/false)
+   *  q   : the prompt
+   *  choices: array of options (for mc)
+   *  answer : the correct answer string (must match one of the choices)
+   *  fact   : (optional) short explanation shown in review
+   */
+  const questionBank = [
+    { type:"mc", q:"Which empire did Hernán Cortés encounter in 1519?",
+      choices:["Inca Empire","Aztec Empire","Maya City-States","Portuguese Brazil"], answer:"Aztec Empire",
+      fact:"Cortés entered Tenochtitlan in 1519; the siege and fall came in 1521." },
+    { type:"tf", q:"Primary sources are always reliable without interpretation.",
+      choices:["True","False"], answer:"False", fact:"All sources require context, corroboration, and interpretation." },
+    { type:"mc", q:"Which crop drove much of the colonial economy in the Caribbean?",
+      choices:["Wheat","Sugar","Coffee","Tobacco"], answer:"Sugar",
+      fact:"Sugar plantations shaped labor systems, trade, and environment." },
+    { type:"mc", q:"Match the author: *Born in Blood and Fire* was written by…",
+      choices:["Eric Zolov","Jeffrey Pilcher","John Charles Chasteen","Mary Lou Cason"], answer:"John Charles Chasteen",
+      fact:"Chasteen’s survey text is widely used in Modern Latin America courses." },
+    { type:"tf", q:"In historical writing, a thesis and evidence are the same thing.",
+      choices:["True","False"], answer:"False",
+      fact:"A thesis advances a claim; evidence supports it." }
+  ];
+
+  // Shuffle questions each round? Set to true/false.
+  const SHUFFLE_QUESTIONS = true;
+  // Per-question timer in seconds (set to 0 to disable by default; users can toggle)
+  let SECONDS_PER_QUESTION = 0; 
+
+  // ==============================
+  // QUIZ ENGINE — No edits needed
+  // ==============================
+  const el = (sel)=>document.querySelector(sel);
+  const els = (sel)=>Array.from(document.querySelectorAll(sel));
+
+  const screenQuiz   = el('#screen-quiz');
+  const screenResult = el('#screen-result');
+  const screenReview = el('#screen-review');
+  const qText = el('#qtext');
+  const optionsWrap = el('#options');
+  const counter = el('#counter');
+  const scoreEl = el('#score');
+  const bar = el('#bar');
+  const nextBtn = el('#next');
+  const skipBtn = el('#skip');
+  const timerEl = el('#timer');
+  const toggleTimerBtn = el('#toggleTimer');
+
+  let deck = [];
+  let idx = 0;      // current question index
+  let score = 0;    // number correct
+  let locked = false;
+  let ticks = 0;    // remaining seconds
+  let ticker = null;// interval id
+  let history = []; // for review: {q, chosen, correct, fact}
+
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  function normalizeBank(bank){
+    return bank.map(item=>{
+      const base = {type:'mc', choices:[], fact:''};
+      const q = {...base, ...item};
+      if(q.type === 'tf'){ q.choices = ["True","False"]; }
+      return q;
+    });
+  }
+
+  function start(){
+    deck = normalizeBank(questionBank).map(q=>({ ...q, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2)}));
+    if(SHUFFLE_QUESTIONS) shuffle(deck);
+    idx = 0; score = 0; history = []; locked=false;
+    screenQuiz.classList.remove('hidden');
+    screenResult.classList.add('hidden');
+    screenReview.classList.add('hidden');
+    render();
+  }
+
+  function render(){
+    const q = deck[idx];
+    counter.textContent = `Question ${idx+1} of ${deck.length}`;
+    scoreEl.textContent = `Score: ${score}`;
+    bar.style.width = `${((idx)/deck.length)*100}%`;
+    qText.textContent = q.q;
+    optionsWrap.innerHTML = '';
+
+    const opts = [...q.choices];
+    shuffle(opts);
+    opts.forEach((choice, i)=>{
+      const b = document.createElement('button');
+      b.className = 'btn';
+      b.setAttribute('role','listitem');
+      b.setAttribute('data-choice', choice);
+      b.innerHTML = `<strong>${i+1}.</strong> ${choice}`;
+      b.addEventListener('click', ()=>choose(choice, b));
+      optionsWrap.appendChild(b);
+    });
+
+    nextBtn.disabled = true;
+
+    // timer
+    resetTimer();
+  }
+
+  function choose(choice, btn){
+    if(locked) return;
+    locked = true;
+    clearInterval(ticker);
+    const q = deck[idx];
+    const correct = choice === q.answer;
+    if(correct){ score++; btn.classList.add('correct'); }
+    else{
+      btn.classList.add('wrong');
+      // highlight the correct one for learning
+      els('.btn').find(b=>b.dataset.choice===q.answer)?.classList.add('correct');
+    }
+    // disable other buttons
+    els('.btn').forEach(b=> b.disabled = true);
+    nextBtn.disabled = false;
+
+    history.push({
+      q: q.q, chosen: choice, correct: q.answer, fact: q.fact||''
+    });
+    scoreEl.textContent = `Score: ${score}`;
+  }
+
+  function next(){
+    if(idx < deck.length-1){
+      idx++; locked=false; render();
+      bar.style.width = `${((idx)/deck.length)*100}%`;
+      el('#qwrap').classList.remove('fade');
+      requestAnimationFrame(()=>el('#qwrap').classList.add('fade'));
+    }else{ finish(); }
+  }
+
+  function skip(){
+    if(locked) return next();
+    // record a skip as no choice
+    const q = deck[idx];
+    history.push({ q: q.q, chosen: '(skipped)', correct: q.answer, fact: q.fact||'' });
+    locked = true; next();
+  }
+
+  function finish(){
+    screenQuiz.classList.add('hidden');
+    screenResult.classList.remove('hidden');
+    bar.style.width = '100%';
+    const pct = Math.round((score/deck.length)*100);
+    el('#summary').textContent = `You scored ${score} / ${deck.length} (${pct}%).`;
+  }
+
+  function resetTimer(){
+    clearInterval(ticker);
+    if(SECONDS_PER_QUESTION > 0){
+      ticks = SECONDS_PER_QUESTION;
+      timerEl.textContent = `${ticks}s left`;
+      ticker = setInterval(()=>{
+        ticks--; timerEl.textContent = `${ticks}s left`;
+        if(ticks<=0){ clearInterval(ticker); autoReveal(); }
+      }, 1000);
+    }else{
+      timerEl.textContent = 'Timer off';
+    }
+  }
+
+  function autoReveal(){
+    if(locked) return;
+    // reveal correct answer if time runs out
+    const q = deck[idx];
+    const correctBtn = els('.btn').find(b=>b.dataset.choice===q.answer);
+    if(correctBtn){ correctBtn.classList.add('correct'); }
+    els('.btn').forEach(b=> b.disabled = true);
+    history.push({ q: q.q, chosen: '(time up)', correct: q.answer, fact: q.fact||'' });
+    nextBtn.disabled = false; locked = true;
+  }
+
+  // Keyboard shortcuts 1–4 and Enter for Next
+  window.addEventListener('keydown', (e)=>{
+    if(screenQuiz.classList.contains('hidden')) return;
+    if(e.key>='1' && e.key<='4'){
+      const idx = Number(e.key)-1;
+      const btn = els('.btn')[idx];
+      if(btn) btn.click();
+    }
+    if(e.key==='Enter' && !nextBtn.disabled) next();
+  });
+
+  // Buttons
+  nextBtn.addEventListener('click', next);
+  skipBtn.addEventListener('click', skip);
+  el('#restart').addEventListener('click', start);
+
+  // Review
+  el('#reviewBtn').addEventListener('click', ()=>{
+    screenResult.classList.add('hidden');
+    screenReview.classList.remove('hidden');
+    const root = el('#review');
+    root.innerHTML = '<h3 style="margin:0 0 12px">Answer Review</h3>' + history.map((h,i)=>{
+      const ok = h.chosen === h.correct;
+      return `<div style="border:1px solid #26305d; border-radius:12px; padding:14px; margin:10px 0; background:#10183a">
+        <div style="display:flex; gap:8px; align-items:center; justify-content:space-between">
+          <strong>Q${i+1}.</strong>
+          <span style="font-size:13px; color:${ok?'#55e6c1':'#ff9a9a'}">${ok?'Correct':'Incorrect'}</span>
+        </div>
+        <div style="margin:6px 0 8px">${h.q}</div>
+        <div style="font-size:14px"><em>Your answer:</em> ${h.chosen}</div>
+        <div style="font-size:14px"><em>Correct:</em> ${h.correct}</div>
+        ${h.fact ? `<div class="muted" style="margin-top:6px">${h.fact}</div>`:''}
+      </div>`
+    }).join('');
+  });
+  el('#backToResults').addEventListener('click', ()=>{
+    screenReview.classList.add('hidden');
+    screenResult.classList.remove('hidden');
+  });
+
+  // Export question set to JSON (for sharing/editing)
+  el('#exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(questionBank, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'question-bank.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // Timer toggle
+  toggleTimerBtn.addEventListener('click', ()=>{
+    SECONDS_PER_QUESTION = SECONDS_PER_QUESTION>0 ? 0 : 20; // default 20s
+    toggleTimerBtn.blur();
+    render();
+  });
+
+  // Start!
+  start();
+  </script>
+</body>
+</html>
